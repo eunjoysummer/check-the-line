@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>책 OCR 카메라</title>
+<meta name="theme-color" content="#2f55d4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<script>
+try {
+  var t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t;
+  var f = localStorage.getItem('fontSize'); if (f) document.documentElement.dataset.size = f;
+} catch (e) {}
+</script>
+<style>
+:root {
+  --paper: #eef1f4; --sheet: #fbfcfd; --ink: #1d2733; --muted: #5d6b7a; --rule: #d3dae2;
+  --accent: #2f55d4; --accent-ink: #ffffff;
+  --mark: #ffe27a; --mark-ink: #3b2f00; --mark-photo: #ffd6e7;
+  --ok: #1f7a4d; --warn: #a2560f; --page: #1f7a4d;
+  --font-book: "Gowun Batang", "Noto Serif KR", "AppleMyungjo", serif;
+  --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --radius: 10px; --read: 1.06rem;
+  color-scheme: light;
+}
+:root[data-size="s"] { --read: .98rem; }
+:root[data-size="l"] { --read: 1.2rem; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12161b; --sheet: #1a2028; --ink: #e4e9ef; --muted: #98a5b3; --rule: #2c3540;
+    --accent: #7d9bff; --accent-ink: #0d1424; --mark: #6a5810; --mark-ink: #fff1bf; --mark-photo: #6b2a46;
+    --ok: #5fd39a; --warn: #f0a35c; --page: #5fd39a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12161b; --sheet: #1a2028; --ink: #e4e9ef; --muted: #98a5b3; --rule: #2c3540;
+  --accent: #7d9bff; --accent-ink: #0d1424; --mark: #6a5810; --mark-ink: #fff1bf; --mark-photo: #6b2a46;
+  --ok: #5fd39a; --warn: #f0a35c; --page: #5fd39a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.55;
+  padding-top: env(safe-area-inset-top, 0px); }
+.wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px calc(100px + env(safe-area-inset-bottom, 0px)); }
+.view { display: grid; gap: 16px; }
+.ptitle { font-family: var(--font-book); font-weight: 700; font-size: 1.6rem; margin: 4px 0 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { margin: 2px 0 0; color: var(--muted); font-size: .86rem; }
+.muted { color: var(--muted); }
+.lbl { font-size: .8rem; color: var(--muted); letter-spacing: .02em; }
+.field { display: grid; gap: 6px; }
+input[type=text], input[type=number], input[type=search] { -webkit-appearance: none; appearance: none; font: inherit; color: var(--ink); background: var(--sheet);
+  border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; width: 100%; }
+.btn { appearance: none; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); font: inherit; font-weight: 500; text-decoration: none;
+  border-radius: var(--radius); padding: 12px; cursor: pointer; text-align: center; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: .86rem; }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:focus-visible, .seg button:focus-visible, textarea:focus-visible, input:focus-visible, .tabs a:focus-visible, .bk:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn svg { width: 20px; height: 20px; flex: none; }
+input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.sheet { background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius); }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.status { font-size: .88rem; color: var(--muted); display: grid; gap: 6px; }
+.status.err { color: var(--warn); }
+.bar { height: 4px; background: var(--rule); border-radius: 2px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
+.note { display: flex; align-items: center; gap: 10px; padding: 10px 12px; font-size: .88rem; }
+.note span { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; flex: none; }
+.seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.section-title span { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* 표지 */
+.cover { display: block; width: 44px; height: 62px; object-fit: cover; border-radius: 4px; background: var(--rule); box-shadow: 0 1px 3px rgba(0,0,0,.18); flex: none; }
+.cover.ph { display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-ink); font-family: var(--font-book); font-weight: 700; font-size: 1.2rem; }
+.cover.xs { width: 22px; height: 31px; font-size: .7rem; border-radius: 2px; box-shadow: none; }
+.cover.lg { width: 84px; height: 118px; font-size: 2rem; }
+
+/* 책 고르기 */
+.bookcard { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.bookcard .meta { flex: 1; min-width: 0; }
+.bookcard b { display: block; font-family: var(--font-book); font-size: 1.02rem; line-height: 1.35; overflow-wrap: anywhere; }
+.bookcard .meta span { font-size: .8rem; color: var(--muted); }
+.search { position: relative; }
+.results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 15; max-height: 60vh; overflow: auto; }
+.results .grp { font-size: .75rem; color: var(--muted); padding: 8px 12px 4px; }
+.results button { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--rule);
+  padding: 8px 12px; font: inherit; color: var(--ink); cursor: pointer; }
+.results .cover { width: 36px; height: 50px; font-size: 1rem; }
+.results b { display: block; font-weight: 600; font-size: .92rem; line-height: 1.35; }
+.results small { color: var(--muted); font-size: .78rem; }
+.results .msg { padding: 10px 12px; color: var(--muted); font-size: .85rem; border-top: 1px solid var(--rule); }
+
+/* 결과 화면 */
+.rhead { position: sticky; top: 0; z-index: 5; background: var(--paper); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 0; }
+.rhead .grow { flex: 1; }
+.pagebox { display: inline-flex; align-items: center; gap: 4px; font-size: .9rem; color: var(--muted); }
+.pagebox input { width: 5em; padding: 6px 8px; font-variant-numeric: tabular-nums; }
+.rbook { display: flex; align-items: center; gap: 8px; font-size: .9rem; color: var(--muted); margin-top: -6px; }
+.reader { font-family: var(--font-book); font-size: var(--read); line-height: 1.9; padding: 16px; display: grid; gap: 14px; min-height: 220px; }
+.reader p { margin: 0; overflow-wrap: anywhere; }
+mark { background: var(--mark); color: var(--mark-ink); border-radius: 2px; padding: 0 1px; }
+mark.photo { background: var(--mark-photo); }
+textarea { width: 100%; min-height: 320px; resize: vertical; border: 0; background: transparent; color: var(--ink); border-radius: var(--radius);
+  font-family: var(--font-book); font-size: var(--read); line-height: 1.85; padding: 16px; display: block; }
+.hint { font-size: .8rem; color: var(--muted); padding: 0 16px 12px; }
+.stats { font-size: .82rem; color: var(--muted); margin: -4px 0 0; font-variant-numeric: tabular-nums; }
+details.sheet summary { cursor: pointer; padding: 12px 14px; font-weight: 500; font-size: .92rem; }
+.figure { padding: 0 14px 14px; display: grid; gap: 8px; }
+.figure canvas { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--rule); background: var(--paper); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; margin-right: 6px; vertical-align: -2px; border: 2px solid currentColor; }
+.legend .l1 { color: var(--accent); } .legend .l2 { color: var(--warn); } .legend .l3 { color: var(--page); }
+
+/* 서재 */
+.shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 18px 12px; }
+.shelf .empty { grid-column: 1 / -1; }
+.bk { display: grid; gap: 6px; color: inherit; text-decoration: none; align-content: start; }
+.bk .cover { width: 100%; height: auto; aspect-ratio: 3 / 4; font-size: 2.2rem; }
+.bk b { font-size: .88rem; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.bk small { font-size: .76rem; color: var(--muted); }
+.empty { padding: 18px 14px; color: var(--muted); font-size: .9rem; }
+.bhead { display: flex; gap: 14px; align-items: center; }
+.bhead .ptitle { font-size: 1.35rem; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.pages { display: grid; gap: 12px; }
+.pgc-h { display: flex; align-items: center; gap: 6px; padding: 8px 10px 8px 14px; border-bottom: 1px solid var(--rule); }
+.pgn { font-variant-numeric: tabular-nums; font-weight: 600; flex: 1; }
+.pgc-b { padding: 12px 14px 14px; font-family: var(--font-book); font-size: var(--read); line-height: 1.85; display: grid; gap: 10px; }
+.pgc-b p { margin: 0; overflow-wrap: anywhere; }
+.linkbtn { appearance: none; background: none; border: 0; color: var(--muted); font: inherit; font-size: .82rem; padding: 6px 8px; cursor: pointer; }
+.linkbtn.armed { color: var(--warn); font-weight: 600; }
+
+/* 설정 */
+.set { padding: 14px; display: grid; gap: 10px; }
+.set h2 { font-family: var(--font-book); font-size: 1.1rem; margin: 0; }
+.set p { margin: 0; font-size: .86rem; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+.setrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: .92rem; }
+.how { font-size: .86rem; color: var(--muted); padding: 2px 14px 14px; display: grid; gap: 6px; }
+.how ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.how p { margin: 0; }
+
+/* 하단 고정: 탭, 결과 화면 도구 */
+.tabs, .dock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: var(--sheet); border-top: 1px solid var(--rule);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.08); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.tabs-in, .dock-in { max-width: 720px; margin: 0 auto; display: grid; }
+.tabs-in { grid-template-columns: repeat(3, 1fr); }
+.tabs a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 56px; color: var(--muted); text-decoration: none; font-size: .76rem; }
+.tabs a[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.tabs svg { width: 22px; height: 22px; }
+.dock-in { grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px; }
+.dock .btn { min-height: 46px; padding: 6px 4px; font-size: .84rem; line-height: 1.2; gap: 6px; }
+.dock .btn.off { opacity: .45; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; background: var(--mark); display: inline-block; flex: none; }
+
+/* 자르기 */
+.crop { position: fixed; inset: 0; z-index: 30; background: #0b0d10; color: #fff; display: flex; flex-direction: column; padding-top: env(safe-area-inset-top, 0px); }
+.crop-top { padding: 12px 16px; font-size: .9rem; color: #c9d1db; text-align: center; }
+.crop-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 12px; }
+.crop-stage canvas { touch-action: none; display: block; }
+.crop-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); background: #14181d; }
+.crop-bar .btn { background: #222830; color: #fff; border-color: #333b45; min-height: 46px; font-size: .88rem; padding: 6px 4px; }
+.crop-bar .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--sheet);
+  padding: 9px 14px; border-radius: 8px; font-size: .88rem; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 40;
+  max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px; }
+.toast.show { opacity: 1; }
+.toast.show.act { pointer-events: auto; }
+.toast button { appearance: none; border: 0; background: none; color: var(--mark); font: inherit; font-weight: 600; padding: 4px 0; cursor: pointer; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .bar > i, .toast { transition: none; } }
+@media (max-width: 380px) { .actions { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 찍기 -->
+  <section class="view" id="v-scan">
+    <h1 class="ptitle">책 OCR 카메라</h1>
+    <div class="note sheet" id="draftNote" hidden>
+      <span id="draftText"></span>
+      <button type="button" class="btn small" id="draftOpen">이어서</button>
+    </div>
+    <div class="field">
+      <span class="lbl">읽는 책</span>
+      <div class="bookcard sheet" id="pickCard" hidden>
+        <span id="pickCover"></span>
+        <div class="meta"><b id="pickTitle"></b><span id="pickSub"></span></div>
+        <button type="button" class="btn small ghost" id="pickChange">바꾸기</button>
+      </div>
+      <div class="search" id="bookSearch">
+        <input type="search" id="bookInput" placeholder="책 제목" autocomplete="off" enterkeyhint="done" aria-label="책 제목 검색">
+        <div class="results" id="bookResults" role="listbox" hidden></div>
+      </div>
+    </div>
+    <div class="actions">
+      <label class="btn primary" for="cam">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        책 페이지 찍기
+      </label>
+      <label class="btn" for="pick">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M4 16l5-5 4 4 3-3 4 4"/></svg>
+        사진에서 고르기
+      </label>
+      <input type="file" id="cam" accept="image/*" capture="environment">
+      <input type="file" id="pick" accept="image/*">
+    </div>
+    <div class="status" id="status" aria-live="polite">
+      <span id="statusText">인식 엔진은 처음 한 번만 받습니다(약 30MB). 와이파이에서 시작하세요.</span>
+      <div class="bar" id="bar" hidden><i id="barFill"></i></div>
+    </div>
+  </section>
+
+  <!-- 결과 -->
+  <section class="view" id="v-result" hidden>
+    <div class="rhead">
+      <button type="button" class="btn small ghost" id="backBtn">← 다시 찍기</button>
+      <span class="grow"></span>
+      <span class="pagebox"><label for="page">p.</label><input type="number" id="page" inputmode="numeric" min="0" placeholder="쪽"></span>
+      <div class="seg" role="group" aria-label="보기 방식">
+        <button type="button" id="mHl" aria-pressed="true">형광펜</button>
+        <button type="button" id="mEdit" aria-pressed="false">편집</button>
+      </div>
+    </div>
+    <div class="rbook" id="rBook"></div>
+    <section class="sheet" aria-label="인식 결과">
+      <div class="reader" id="reader" aria-label="정리된 문단. 글자를 길게 눌러 선택하면 형광펜을 칠할 수 있습니다"></div>
+      <textarea id="editor" spellcheck="false" aria-label="문단 편집. 빈 줄로 문단을 나눕니다" hidden></textarea>
+      <div class="hint" id="hint"></div>
+    </section>
+    <p class="stats" id="stats"></p>
+    <details class="sheet" id="figBox" hidden>
+      <summary>인식한 줄 확인하기</summary>
+      <div class="figure">
+        <canvas id="fig" aria-label="사진 위에 인식한 줄을 표시한 그림"></canvas>
+        <div class="legend"><span class="l1">이어지는 줄</span><span class="l2">문단 시작 줄</span><span class="l3">쪽 번호</span></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- 서재 -->
+  <section class="view" id="v-library" hidden>
+    <div class="section-title"><h1 class="ptitle">서재</h1><span id="libCount"></span></div>
+    <div class="shelf" id="shelf"></div>
+  </section>
+
+  <!-- 책 상세 -->
+  <section class="view" id="v-book" hidden>
+    <div class="rhead"><a class="btn small ghost" href="#/library">← 서재</a></div>
+    <div class="bhead" id="bookHead"></div>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="보기 방식">
+        <button type="button" id="bvAll" aria-pressed="true">전체</button>
+        <button type="button" id="bvHl" aria-pressed="false">형광펜만</button>
+      </div>
+      <button type="button" class="btn small" id="bookCopy">형광펜 모아 복사</button>
+    </div>
+    <div class="pages" id="pages"></div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="view" id="v-settings" hidden>
+    <h1 class="ptitle">설정</h1>
+    <section class="sheet set">
+      <h2>계정</h2>
+      <p>로그인과 여러 기기 동기화는 준비 중입니다. 지금은 이 기기에만 저장되니 아래 백업 파일을 꼭 연결해 두세요.</p>
+      <div class="row"><button type="button" class="btn small" disabled>구글로 로그인 (준비 중)</button></div>
+    </section>
+    <section class="sheet set" aria-labelledby="bkTitle">
+      <div class="section-title"><h2 id="bkTitle">백업</h2><span id="bkState">연결된 백업 파일 없음</span></div>
+      <p id="bkHelp">백업 파일을 한 번 정해 두면, 저장할 때마다 그 파일 하나를 덮어씁니다. 기기를 바꾸거나 브라우저 데이터를 지우기 전에 이 파일을 챙기세요.</p>
+      <div class="row">
+        <button type="button" class="btn small primary" id="bkPick">백업 파일 정하기</button>
+        <button type="button" class="btn small" id="bkNow">지금 백업</button>
+        <label class="btn small" for="bkImport">백업 불러오기</label>
+        <input type="file" id="bkImport" accept="application/json,.json">
+      </div>
+    </section>
+    <section class="sheet set">
+      <h2>화면</h2>
+      <div class="setrow"><span>테마</span>
+        <div class="seg" id="themeSeg" role="group" aria-label="테마"><button type="button" data-v="">기기 설정</button><button type="button" data-v="light">밝게</button><button type="button" data-v="dark">어둡게</button></div>
+      </div>
+      <div class="setrow"><span>본문 글자</span>
+        <div class="seg" id="sizeSeg" role="group" aria-label="본문 글자 크기"><button type="button" data-v="s">작게</button><button type="button" data-v="">보통</button><button type="button" data-v="l">크게</button></div>
+      </div>
+    </section>
+    <details class="sheet">
+      <summary>인식 원리</summary>
+      <div class="how"><ol>
+        <li>들여쓰기로 시작한 줄, 짧게 끝난 줄 다음 줄, 줄 간격이 넓어진 곳에서 문단을 나눕니다. 나머지 줄은 이어 붙입니다.</li>
+        <li>'보 / 고서를'처럼 단어 중간에서 넘어간 곳은 붙이고, '평판을 / 가진'처럼 단어가 끝난 곳은 띄웁니다.</li>
+        <li>본문 아래나 위에 따로 떨어진 숫자 덩어리를 쪽 번호로 봅니다. 틀리면 p. 칸을 고치세요.</li>
+        <li>책에 칠한 형광펜은 글자 아래 밝고 진한 색을 찾아 분홍으로 표시합니다. 연하게 칠했거나 노란 조명 아래서는 놓칠 수 있습니다.</li>
+        <li>사진과 글자 인식은 모두 이 기기 안에서 합니다. 책 검색만 제목 검색어를 서버로 보냅니다.</li>
+      </ol></div>
+    </details>
+    <details class="sheet">
+      <summary>오픈소스와 버전</summary>
+      <div class="how">
+        <p>PaddleOCR PP-OCRv5 모델 (Apache-2.0), onnxruntime-web 1.22.0 (MIT), Gowun Batang · IBM Plex Sans KR 글꼴 (OFL), 책 정보 네이버 책 검색 API</p>
+        <p>버전 <span id="appVer"></span></p>
+      </div>
+    </details>
+  </section>
+</div>
+
+<!-- 하단 탭 -->
+<nav class="tabs" id="tabs" aria-label="메뉴">
+  <div class="tabs-in">
+    <a href="#/scan" data-tab="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>찍기</a>
+    <a href="#/library" data-tab="library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h4v16H5zM10 4h4v16h-4zM15.5 5l3.8-1 3 15.5-3.8 1z"/></svg>서재</a>
+    <a href="#/settings" data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>설정</a>
+  </div>
+</nav>
+
+<!-- 결과 화면 도구 -->
+<div class="dock" id="dock" hidden>
+  <div class="dock-in">
+    <button type="button" class="btn primary off" id="hlAdd"><span class="swatch" aria-hidden="true"></span>형광펜</button>
+    <button type="button" class="btn off" id="hlDel">지우기</button>
+    <button type="button" class="btn" id="saveBtn">저장</button>
+    <button type="button" class="btn" id="copyHlBtn">형광펜만 복사</button>
+  </div>
+</div>
+
+<!-- 자르기 -->
+<div class="crop" id="crop" hidden role="dialog" aria-label="인식할 영역 고르기">
+  <div class="crop-top">인식할 영역을 드래그하세요. 모서리를 끌면 크기, 안쪽을 끌면 위치가 바뀝니다.</div>
+  <div class="crop-stage" id="cropStage"><canvas id="cropCv"></canvas></div>
+  <div class="crop-bar">
+    <button type="button" class="btn" id="cropCancel">취소</button>
+    <button type="button" class="btn" id="cropRot">↻ 90°</button>
+    <button type="button" class="btn" id="cropAll">전체</button>
+    <button type="button" class="btn primary" id="cropOk">인식하기</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="ort.wasm.min.js"></script>
+<script src="ocr.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
